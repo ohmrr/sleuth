@@ -1,0 +1,27 @@
+[
+    {
+        "name": "GitHub",
+        "baseUrl": "https://github.com",
+        "url": "https://github.com/{}"
+    },
+    {
+        "name": "LeetCode",
+        "baseUrl": "https://leetcode.com/",
+        "url": "https://leetcode.com/u/{}/"
+    },
+    {
+        "name": "LinkedIn",
+        "baseUrl": "https://linkedin.com/",
+        "url": "https://linkedin.com/in/{}/"
+    },
+    {
+        "name": "Reddit",
+        "baseUrl": "https://www.reddit.com/",
+        "url": "https://www.reddit.com/user/{}/"
+    },
+    {
+        "name": "YouTube",
+        "baseUrl": "https://www.youtube.com/",
+        "url": "https://www.youtube.com/@{}"
+    }
+]
