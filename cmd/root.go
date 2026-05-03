@@ -2,21 +2,26 @@ package cmd
 
 import (
 	"fmt"
+	"net/http"
 	"os"
+	"time"
 
+	"charm.land/lipgloss/v2"
 	"github.com/spf13/cobra"
 )
+
+var client *http.Client
 
 var rootCmd = &cobra.Command{
 	Use:   "sleuth [username]",
 	Short: "Scan various websites for a username match",
-	Long:  `sleuth is a CLI tool for inspecting different websites for users with a given username.
+	Long: `sleuth is a CLI tool for inspecting different websites for users with a given username.
 	
 It makes requests to each website listed in data/sites.json, and outputs what matches were found.
 Supports multiple output formats, such as CSV, JSON, or plain-text.`,
 
-	Args: cobra.ArbitraryArgs,
-	Run: scan,
+	Args:             cobra.ArbitraryArgs,
+	Run:              scan,
 	PersistentPreRun: setupClient,
 }
 
@@ -42,7 +47,11 @@ func init() {
 }
 
 func setupClient(cmd *cobra.Command, args []string) {
-	// client := &http.Client{}
+	timeoutDuration := 10 * time.Second
+
+	client = &http.Client{
+		Timeout: timeoutDuration,
+	}
 }
 
 func scan(cmd *cobra.Command, args []string) {
@@ -51,7 +60,26 @@ func scan(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	for i, username := range args {
-		fmt.Printf("Username %d: %s\n", (i + 1), username)
+	for _, username := range args {
+		url := fmt.Sprintf("https://github.com/%s", username)
+
+		resp, err := client.Get(url)
+		if err != nil {
+			fmt.Printf("error making request")
+			return
+		}
+
+		resp.Body.Close()
+
+		// body, err := io.ReadAll(resp.Body)
+		// if err != nil {
+		// 	fmt.Printf("error reading bdy")
+		// }
+
+		if resp.StatusCode == 200 {
+			lipgloss.Printf("%s (%s) - Account Found\n", successStyle.Render("[+] GitHub"), url)
+		} else {
+			lipgloss.Printf("%s (%s) - Account NOT Found\n", errorStyle.Render("[-] GitHub"), url)
+		}
 	}
 }
