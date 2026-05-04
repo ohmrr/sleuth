@@ -1,14 +1,22 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
-	"charm.land/lipgloss/v2"
 	"github.com/spf13/cobra"
 )
+
+type Site struct {
+	Name    string `json:"name"`
+	BaseURL string `json:"baseUrl"`
+	URL     string `json:"url"`
+}
 
 var client *http.Client
 
@@ -21,7 +29,7 @@ It makes requests to each website listed in data/sites.json, and outputs what ma
 Supports multiple output formats, such as CSV, JSON, or plain-text.`,
 
 	Args:             cobra.ArbitraryArgs,
-	Run:              scan,
+	Run:              sleuth,
 	PersistentPreRun: setupClient,
 }
 
@@ -54,32 +62,66 @@ func setupClient(cmd *cobra.Command, args []string) {
 	}
 }
 
-func scan(cmd *cobra.Command, args []string) {
+func loadSiteData() []Site {
+	jsonFile, err := os.Open("data/sites.json")
+	if err != nil {
+		fmt.Println(err)
+		return nil
+	}
+
+	defer jsonFile.Close()
+
+	byteValue, err := io.ReadAll(jsonFile)
+	if err != nil {
+		fmt.Println("Error reading file:", err)
+		return nil
+	}
+
+	var sites []Site
+
+	err = json.Unmarshal(byteValue, &sites)
+	if err != nil {
+		fmt.Println("Error unmarshalling JSON:", err)
+		return nil
+	}
+
+	return sites
+}
+
+func sleuth(cmd *cobra.Command, args []string) {
 	if len(args) == 0 {
 		cmd.Help()
 		return
 	}
 
+	sites := loadSiteData()
 	for _, username := range args {
-		url := fmt.Sprintf("https://github.com/%s", username)
+		fmt.Printf("\nBeginning Scan for %s\n\n", username)
+		found, not_found := scan(username, sites)
+
+		fmt.Printf("Found: %d | Not Found: %d\n", found, not_found)
+	}
+}
+
+func scan(username string, sites []Site) (int, int) {
+	found := 0
+
+	for _, site := range sites {
+		url := strings.Replace(site.URL, "{}", username, 1)
 
 		resp, err := client.Get(url)
 		if err != nil {
-			fmt.Printf("error making request")
-			return
+			fmt.Printf("Error:", err)
+			os.Exit(1)
 		}
-
-		resp.Body.Close()
-
-		// body, err := io.ReadAll(resp.Body)
-		// if err != nil {
-		// 	fmt.Printf("error reading bdy")
-		// }
 
 		if resp.StatusCode == 200 {
-			lipgloss.Printf("%s (%s) - Account Found\n", successStyle.Render("[+] GitHub"), url)
+			fmt.Printf("[+] %s (%s) - Account Found\n", site.Name, url)
+			found++
 		} else {
-			lipgloss.Printf("%s (%s) - Account NOT Found\n", errorStyle.Render("[-] GitHub"), url)
+			fmt.Printf("[-] %s (%s) - Account NOT Found [%d]\n", site.Name, url, resp.StatusCode)
 		}
 	}
+
+	return found, len(sites) - found
 }
